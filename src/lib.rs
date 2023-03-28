@@ -48,9 +48,7 @@ impl<'a> Extractor for MetadataExtractor<'a> {
 // pre-requisite:
 // global::set_text_map_propagator(TraceContextPropagator::new());
 pub fn tracing_parent_span_from_req<T>(request: &Request<T>){
-		let cx = global::get_text_map_propagator(|propagator| {
-				propagator.extract(&MetadataExtractor(request.metadata()))
-		});
+		let cx = get_context_from_req(request);
 
 		tracing::Span::current().set_parent(cx);
 }
@@ -70,9 +68,7 @@ pub fn tracing_current_span_to_req<T>(request: &mut Request<T>){
 // need to hold returned guard(e.g. let _xx = ) for this new context to take effect
 // context will restore when guard dropped
 pub fn otel_thread_cx_from_req<T>(request: &Request<T>)  -> ContextGuard {
-		let cx = global::get_text_map_propagator(|propagator| {
-				propagator.extract(&MetadataExtractor(request.metadata()))
-		});
+		let cx = get_context_from_req(request);
 		cx.attach()
 }
 
@@ -83,6 +79,12 @@ pub fn otel_thread_cx_to_req<T>(request: &mut Request<T>){
 		global::get_text_map_propagator(|propagator| {
 				propagator.inject_context(&cx, &mut MetadataInjector(request.metadata_mut()))
 		});
+}
+
+pub fn get_context_from_req<T>(request: &Request<T>) -> Context {
+		global::get_text_map_propagator(|propagator| {
+				propagator.extract(&MetadataExtractor(request.metadata()))
+		})
 }
 
 

@@ -4,7 +4,7 @@ use opentelemetry::{global, Context, ContextGuard};
 use opentelemetry::propagation::{Extractor, Injector};
 
 use tonic::metadata::{MetadataKey, KeyRef, MetadataMap};
-use tonic::Request;
+use tonic::{Request, Response};
 
 // extend tracing::Span with context()
 use tracing_opentelemetry::OpenTelemetrySpanExt;
@@ -57,11 +57,23 @@ pub fn tracing_parent_span_from_req<T>(request: &Request<T>){
 
 // pre-requisite:
 // global::set_text_map_propagator(TraceContextPropagator::new());
+fn tracing_current_span_to_req_or_res(metadata: &mut MetadataMap){
+        let cx = tracing::Span::current().context();
+        global::get_text_map_propagator(|propagator| {
+                propagator.inject_context(&cx, &mut MetadataInjector(metadata))
+        });
+}
+
+// pre-requisite:
+// global::set_text_map_propagator(TraceContextPropagator::new());
 pub fn tracing_current_span_to_req<T>(request: &mut Request<T>){
-		let cx = tracing::Span::current().context();
-		global::get_text_map_propagator(|propagator| {
-				propagator.inject_context(&cx, &mut MetadataInjector(request.metadata_mut()))
-		});
+	    tracing_current_span_to_req_or_res(request.metadata_mut());
+}
+
+// pre-requisite:
+// global::set_text_map_propagator(TraceContextPropagator::new());
+pub fn tracing_current_span_to_res<T>(response: &mut Response<T>){
+        tracing_current_span_to_req_or_res(response.metadata_mut());
 }
 
 // pre-requisite:
